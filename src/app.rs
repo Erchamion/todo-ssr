@@ -1,29 +1,47 @@
+use html::Input;
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
+use logging::log;
 
 #[component]
 pub fn App() -> impl IntoView {
     // Provides context that manages stylesheets, titles, meta tags, etc.
     provide_meta_context();
+    log!("App starting");
 
     view! {
-        // injects a stylesheet into the document <head>
-        // id=leptos means cargo-leptos will hot-reload this stylesheet
-        <Stylesheet id="leptos" href="/pkg/todo-ssr.css"/>
+        <Stylesheet id="leptos" href="/pkg/todo-ssr.css" />
 
         // sets the document title
-        <Title text="TODO"/>
+        <Title text="TODO" />
 
         // content for this welcome page
         <Router>
             <main>
                 <Routes>
-                    <Route path="" view=HomePage/>
-                    <Route path="/*any" view=NotFound/>
+                    <Route path="" view=HomePage />
+                    <Route path="/*any" view=NotFound />
                 </Routes>
             </main>
         </Router>
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Todo {
+    id: u32,
+    description: String,
+    is_complete: bool,
+}
+
+impl Todo {
+    fn new(desc: String) -> Todo {
+        Todo {
+            id: 0,
+            description: desc,
+            is_complete: false,
+        }
     }
 }
 
@@ -33,8 +51,57 @@ fn HomePage() -> impl IntoView {
     view! {
         <h1>"Welcome to Lepto<Do>s!"</h1>
         <div>
-
+            <TodosComponent />
         </div>
+    }
+}
+
+#[component]
+fn TodosComponent() -> impl IntoView {
+    let todos: Vec<Todo> = vec![
+        Todo::new(String::from("Clean living room")),
+        Todo::new(String::from("Wash car")),
+        Todo::new(String::from("Clip dogs nails")),
+        Todo::new(String::from("Learn rust")),
+    ];
+    view! {
+        <div>
+            <CreateTodo />
+        </div>
+        <div>
+            <ul>{todos.into_iter().map(|todo| view! { <TodoComponent value=todo /> }).collect_view()}</ul>
+        </div>
+    }
+}
+
+#[component]
+fn CreateTodo() -> impl IntoView {
+    let (description, _) = create_signal("".to_string());
+    let input_el: NodeRef<Input> = create_node_ref();
+    let on_submit = move |ev: leptos::ev::SubmitEvent| {
+        ev.prevent_default();
+        let input_el = input_el().unwrap();
+        let value = input_el.value();
+        input_el.set_value("");
+        log!("setting desc: {value}");
+    };
+    view! {
+        <form on:submit=on_submit>
+            <input type="text" value=description placeholder="create a new TODO!" node_ref=input_el />
+            <input type="submit" value="Add" />
+        </form>
+    }
+}
+
+#[component]
+fn TodoComponent(value: Todo) -> impl IntoView {
+    view! {
+        <li>
+            <div class="inline-block">
+                <input type="checkbox" />
+                <span>{value.description}</span>
+            </div>
+        </li>
     }
 }
 
@@ -55,7 +122,5 @@ fn NotFound() -> impl IntoView {
         resp.set_status(actix_web::http::StatusCode::NOT_FOUND);
     }
 
-    view! {
-        <h1>"Not Found"</h1>
-    }
+    view! { <h1>"Not Found"</h1> }
 }
