@@ -2,19 +2,18 @@ use html::Input;
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
-use logging::log;
+use uuid::Uuid;
 
 #[component]
 pub fn App() -> impl IntoView {
     // Provides context that manages stylesheets, titles, meta tags, etc.
     provide_meta_context();
-    log!("App starting");
 
     view! {
         <Stylesheet id="leptos" href="/pkg/todo-ssr.css" />
 
         // sets the document title
-        <Title text="TODO" />
+        <Title text="Lepto<Do>s" />
 
         // content for this welcome page
         <Router>
@@ -30,7 +29,7 @@ pub fn App() -> impl IntoView {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Todo {
-    id: u32,
+    id: Uuid,
     description: String,
     is_complete: bool,
 }
@@ -38,7 +37,7 @@ pub struct Todo {
 impl Todo {
     fn new(desc: String) -> Todo {
         Todo {
-            id: 0,
+            id: Uuid::new_v4(),
             description: desc,
             is_complete: false,
         }
@@ -58,32 +57,31 @@ fn HomePage() -> impl IntoView {
 
 #[component]
 fn TodosComponent() -> impl IntoView {
-    let todos: Vec<Todo> = vec![
-        Todo::new(String::from("Clean living room")),
-        Todo::new(String::from("Wash car")),
-        Todo::new(String::from("Clip dogs nails")),
-        Todo::new(String::from("Learn rust")),
-    ];
+    let rows: Vec<Todo> = Vec::new();
+    let (todos, set_todos) = create_signal(rows.clone());
     view! {
         <div>
-            <CreateTodo />
+            <CreateTodo setter=set_todos/>
         </div>
         <div>
-            <ul>{todos.into_iter().map(|todo| view! { <TodoComponent value=todo /> }).collect_view()}</ul>
+            <ul>{move || todos.get().into_iter().map(|todo| view! { <TodoComponent value=todo setter=set_todos /> }).collect_view()}</ul>
         </div>
     }
 }
 
 #[component]
-fn CreateTodo() -> impl IntoView {
+fn CreateTodo(setter: WriteSignal<Vec<Todo>>) -> impl IntoView {
     let (description, _) = create_signal("".to_string());
     let input_el: NodeRef<Input> = create_node_ref();
     let on_submit = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
+
         let input_el = input_el().unwrap();
         let value = input_el.value();
+        setter.update(|todos| {
+            todos.push(Todo::new(value.clone()));
+        });
         input_el.set_value("");
-        log!("setting desc: {value}");
     };
     view! {
         <form on:submit=on_submit>
@@ -94,12 +92,16 @@ fn CreateTodo() -> impl IntoView {
 }
 
 #[component]
-fn TodoComponent(value: Todo) -> impl IntoView {
+fn TodoComponent(value: Todo, setter: WriteSignal<Vec<Todo>>) -> impl IntoView {
+    let description = value.description.clone();
+    let done = value.clone();
+    let remove = value.clone();
     view! {
         <li>
             <div class="inline-block">
-                <input type="checkbox" />
-                <span>{value.description}</span>
+                <span>{description}</span>
+                <button on:click=move |_| setter.update(|todos| todos.retain(|t| t != &done)) >done</button>
+                <button on:click=move |_| setter.update(|todos| todos.retain(|t| t != &remove)) >remove</button>
             </div>
         </li>
     }
